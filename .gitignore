@@ -1,0 +1,40 @@
+# binaries
+scheduler
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# test binaries / coverage
+*.test
+*.out
+coverage.out
+
+# Go workspace
+go.work
+go.work.sum
+
+# env files
+.env
+.env.local
+
+# IDE
+.idea/
+.vscode/
+
+# OS files
+.DS_Store
+
+# database
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+
+# logs
+*.log
+
+# temporary files
+tmp/
+temp/
