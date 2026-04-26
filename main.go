@@ -11,9 +11,7 @@ import (
 )
 
 func main() {
-	if err := godotenv.Load(); err != nil {
-		log.Fatal(err)
-	}
+	_ = godotenv.Load()
 
 	database, err := db.InitDB()
 	if err != nil {
