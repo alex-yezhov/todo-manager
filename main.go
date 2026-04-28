@@ -13,17 +13,20 @@ import (
 func main() {
 	_ = godotenv.Load()
 
-	database, err := db.InitDB()
+	store, err := db.InitDB()
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
+		return
 	}
 	defer func() {
-		_ = database.Close()
+		_ = store.Close()
 	}()
 
-	api.Init()
+	app := api.New(store)
+	app.Init()
 
 	if err := server.Run(); err != nil {
-		log.Fatal(err)
+		log.Println(err)
+		return
 	}
 }

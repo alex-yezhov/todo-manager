@@ -3,6 +3,9 @@ package api
 import (
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNextDate_Days(t *testing.T) {
@@ -52,19 +55,12 @@ func TestNextDate_Days(t *testing.T) {
 			got, err := NextDate(now, tt.start, tt.repeat)
 
 			if tt.wantErr {
-				if err == nil {
-					t.Fatalf("expected error, got nil")
-				}
+				require.Error(t, err)
 				return
 			}
 
-			if err != nil {
-				t.Fatalf("unexpected error: %v", err)
-			}
-
-			if got != tt.want {
-				t.Fatalf("got %q, want %q", got, tt.want)
-			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
@@ -110,25 +106,18 @@ func TestNextDate_Years(t *testing.T) {
 			got, err := NextDate(now, tt.start, tt.repeat)
 
 			if tt.wantErr {
-				if err == nil {
-					t.Fatalf("expected error, got nil")
-				}
+				require.Error(t, err)
 				return
 			}
 
-			if err != nil {
-				t.Fatalf("unexpected error: %v", err)
-			}
-
-			if got != tt.want {
-				t.Fatalf("got %q, want %q", got, tt.want)
-			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
 
 func TestNextDate_Week(t *testing.T) {
-	now := mustParseDate(t, "20240126") // friday
+	now := mustParseDate(t, "20240126")
 
 	tests := []struct {
 		name    string
@@ -168,19 +157,12 @@ func TestNextDate_Week(t *testing.T) {
 			got, err := NextDate(now, tt.start, tt.repeat)
 
 			if tt.wantErr {
-				if err == nil {
-					t.Fatalf("expected error, got nil")
-				}
+				require.Error(t, err)
 				return
 			}
 
-			if err != nil {
-				t.Fatalf("unexpected error: %v", err)
-			}
-
-			if got != tt.want {
-				t.Fatalf("got %q, want %q", got, tt.want)
-			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
@@ -232,19 +214,12 @@ func TestNextDate_Month(t *testing.T) {
 			got, err := NextDate(now, tt.start, tt.repeat)
 
 			if tt.wantErr {
-				if err == nil {
-					t.Fatalf("expected error, got nil")
-				}
+				require.Error(t, err)
 				return
 			}
 
-			if err != nil {
-				t.Fatalf("unexpected error: %v", err)
-			}
-
-			if got != tt.want {
-				t.Fatalf("got %q, want %q", got, tt.want)
-			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
@@ -253,37 +228,31 @@ func TestNextDate_InvalidInput(t *testing.T) {
 	now := mustParseDate(t, "20240126")
 
 	tests := []struct {
-		name    string
-		start   string
-		repeat  string
-		wantErr bool
+		name   string
+		start  string
+		repeat string
 	}{
 		{
-			name:    "empty repeat",
-			start:   "20240126",
-			repeat:  "",
-			wantErr: true,
+			name:   "empty repeat",
+			start:  "20240126",
+			repeat: "",
 		},
 		{
-			name:    "bad start date",
-			start:   "20240199",
-			repeat:  "y",
-			wantErr: true,
+			name:   "bad start date",
+			start:  "20240199",
+			repeat: "y",
 		},
 		{
-			name:    "unsupported format",
-			start:   "20240126",
-			repeat:  "ooops",
-			wantErr: true,
+			name:   "unsupported format",
+			start:  "20240126",
+			repeat: "ooops",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			_, err := NextDate(now, tt.start, tt.repeat)
-			if tt.wantErr && err == nil {
-				t.Fatalf("expected error, got nil")
-			}
+			require.Error(t, err)
 		})
 	}
 }
@@ -292,9 +261,7 @@ func mustParseDate(t *testing.T, s string) time.Time {
 	t.Helper()
 
 	d, err := parseDate(s)
-	if err != nil {
-		t.Fatalf("failed to parse date %q: %v", s, err)
-	}
+	require.NoError(t, err)
 
 	return d
 }

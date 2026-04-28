@@ -1,13 +1,29 @@
 package api
 
-import "net/http"
+import (
+	"net/http"
+	"os"
+	"strings"
 
-func Init() {
-	http.HandleFunc("/api/signin", signinHandler)
+	"scheduler/pkg/db"
+)
 
-	http.HandleFunc("/api/nextdate", nextDateHandler)
+type App struct {
+	store    *db.Store
+	password string
+}
 
-	http.HandleFunc("/api/task", auth(taskHandler))
-	http.HandleFunc("/api/tasks", auth(tasksHandler))
-	http.HandleFunc("/api/task/done", auth(doneTaskHandler))
+func New(store *db.Store) *App {
+	return &App{
+		store:    store,
+		password: strings.TrimSpace(os.Getenv("TODO_PASSWORD")),
+	}
+}
+
+func (a *App) Init() {
+	http.HandleFunc("/api/signin", a.signinHandler)
+	http.HandleFunc("/api/nextdate", a.nextDateHandler)
+	http.HandleFunc("/api/task", a.auth(a.taskHandler))
+	http.HandleFunc("/api/tasks", a.auth(a.tasksHandler))
+	http.HandleFunc("/api/task/done", a.auth(a.doneTaskHandler))
 }

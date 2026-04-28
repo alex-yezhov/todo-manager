@@ -15,7 +15,9 @@ const (
 	envDBFile     = "TODO_DBFILE"
 )
 
-var DB *sql.DB
+type Store struct {
+	db *sql.DB
+}
 
 func getDBPath() string {
 	path := strings.TrimSpace(os.Getenv(envDBFile))
@@ -25,45 +27,54 @@ func getDBPath() string {
 	return path
 }
 
-func InitDB() (*sql.DB, error) {
+func InitDB() (*Store, error) {
 	dbPath := getDBPath()
 
 	dir := filepath.Dir(dbPath)
 	if dir != "." {
-		if err := os.MkdirAll(dir, 0755); err != nil {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
 			return nil, fmt.Errorf("не удалось создать папку для базы: %w", err)
 		}
 	}
 
-	database, err := sql.Open("sqlite", dbPath)
+	conn, err := sql.Open("sqlite", dbPath)
 	if err != nil {
 		return nil, fmt.Errorf("не удалось открыть базу: %w", err)
 	}
 
-	if err := database.Ping(); err != nil {
-		_ = database.Close()
+	if err := conn.Ping(); err != nil {
+		_ = conn.Close()
 		return nil, fmt.Errorf("не удалось подключиться к базе: %w", err)
 	}
 
-	if err := createTable(database); err != nil {
-		_ = database.Close()
+	if err := createTable(conn); err != nil {
+		_ = conn.Close()
 		return nil, fmt.Errorf("не удалось создать таблицу: %w", err)
 	}
 
-	DB = database
-	return database, nil
+	return &Store{db: conn}, nil
 }
 
-func createTable(database *sql.DB) error {
+func (s *Store) Close() error {
+	if s == nil || s.db == nil {
+		return nil
+	}
+	return s.db.Close()
+}
+
+func createTable(conn *sql.DB) error {
 	query := `
 	CREATE TABLE IF NOT EXISTS scheduler (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		date TEXT NOT NULL,
+		date TEXT NOT NULL CHECK(length(date) = 8),
 		title TEXT NOT NULL,
 		comment TEXT NOT NULL DEFAULT '',
-		repeat TEXT NOT NULL DEFAULT ''
-	);`
+		repeat TEXT NOT NULL DEFAULT '' CHECK(length(repeat) <= 128)
+	);
 
-	_, err := database.Exec(query)
+	CREATE INDEX IF NOT EXISTS idx_scheduler_date ON scheduler(date);
+	`
+
+	_, err := conn.Exec(query)
 	return err
 }

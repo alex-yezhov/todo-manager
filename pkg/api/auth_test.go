@@ -1,41 +1,33 @@
 package api
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
 
 func TestMakeTokenAndValidateToken(t *testing.T) {
 	password := "12345"
 
 	token, err := makeToken(password)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.NoError(t, err)
+	require.NotEmpty(t, token)
 
-	if token == "" {
-		t.Fatal("token is empty")
-	}
-
-	if !validateToken(token, password) {
-		t.Fatal("token should be valid")
-	}
+	assert.True(t, validateToken(token, password))
 }
 
 func TestValidateToken_WrongPassword(t *testing.T) {
 	password := "12345"
 
 	token, err := makeToken(password)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.NoError(t, err)
 
-	if validateToken(token, "54321") {
-		t.Fatal("token should be invalid for different password")
-	}
+	assert.False(t, validateToken(token, "54321"))
 }
 
 func TestValidateToken_BadFormat(t *testing.T) {
-	if validateToken("not-a-token", "12345") {
-		t.Fatal("bad token format must be invalid")
-	}
+	assert.False(t, validateToken("not-a-token", "12345"))
 }
 
 func TestPasswordHash(t *testing.T) {
@@ -43,15 +35,8 @@ func TestPasswordHash(t *testing.T) {
 	h2 := passwordHash("12345")
 	h3 := passwordHash("54321")
 
-	if h1 == "" {
-		t.Fatal("hash is empty")
-	}
+	require.NotEmpty(t, h1)
 
-	if h1 != h2 {
-		t.Fatal("same password must produce same hash")
-	}
-
-	if h1 == h3 {
-		t.Fatal("different passwords must produce different hashes")
-	}
+	assert.Equal(t, h1, h2)
+	assert.NotEqual(t, h1, h3)
 }

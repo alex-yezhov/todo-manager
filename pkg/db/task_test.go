@@ -4,10 +4,13 @@ import (
 	"path/filepath"
 	"strconv"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestAddGetUpdateDeleteTask(t *testing.T) {
-	setupTestDB(t)
+	store := setupTestDB(t)
 
 	task := &Task{
 		Date:    "20260426",
@@ -16,200 +19,156 @@ func TestAddGetUpdateDeleteTask(t *testing.T) {
 		Repeat:  "d 1",
 	}
 
-	id, err := AddTask(task)
-	if err != nil {
-		t.Fatalf("AddTask returned error: %v", err)
-	}
+	id, err := store.AddTask(task)
+	require.NoError(t, err)
+	require.NotZero(t, id)
 
-	got, err := GetTask(int64ToString(id))
-	if err != nil {
-		t.Fatalf("GetTask returned error: %v", err)
-	}
+	got, err := store.GetTask(int64ToString(id))
+	require.NoError(t, err)
+	require.NotNil(t, got)
 
-	if got.Title != task.Title {
-		t.Fatalf("got title %q, want %q", got.Title, task.Title)
-	}
-	if got.Comment != task.Comment {
-		t.Fatalf("got comment %q, want %q", got.Comment, task.Comment)
-	}
-	if got.Repeat != task.Repeat {
-		t.Fatalf("got repeat %q, want %q", got.Repeat, task.Repeat)
-	}
-	if got.Date != task.Date {
-		t.Fatalf("got date %q, want %q", got.Date, task.Date)
-	}
+	assert.Equal(t, task.Title, got.Title)
+	assert.Equal(t, task.Comment, got.Comment)
+	assert.Equal(t, task.Repeat, got.Repeat)
+	assert.Equal(t, task.Date, got.Date)
 
 	got.Title = "Updated task"
 	got.Comment = "Updated comment"
 	got.Repeat = "y"
 	got.Date = "20270426"
 
-	if err := UpdateTask(got); err != nil {
-		t.Fatalf("UpdateTask returned error: %v", err)
-	}
+	err = store.UpdateTask(got)
+	require.NoError(t, err)
 
-	updated, err := GetTask(got.ID)
-	if err != nil {
-		t.Fatalf("GetTask after update returned error: %v", err)
-	}
+	updated, err := store.GetTask(got.ID)
+	require.NoError(t, err)
+	require.NotNil(t, updated)
 
-	if updated.Title != "Updated task" {
-		t.Fatalf("title was not updated")
-	}
-	if updated.Comment != "Updated comment" {
-		t.Fatalf("comment was not updated")
-	}
-	if updated.Repeat != "y" {
-		t.Fatalf("repeat was not updated")
-	}
-	if updated.Date != "20270426" {
-		t.Fatalf("date was not updated")
-	}
+	assert.Equal(t, "Updated task", updated.Title)
+	assert.Equal(t, "Updated comment", updated.Comment)
+	assert.Equal(t, "y", updated.Repeat)
+	assert.Equal(t, "20270426", updated.Date)
 
-	if err := UpdateDate(got.ID, "20280426"); err != nil {
-		t.Fatalf("UpdateDate returned error: %v", err)
-	}
+	err = store.UpdateDate(got.ID, "20280426")
+	require.NoError(t, err)
 
-	updatedDate, err := GetTask(got.ID)
-	if err != nil {
-		t.Fatalf("GetTask after UpdateDate returned error: %v", err)
-	}
+	updatedDate, err := store.GetTask(got.ID)
+	require.NoError(t, err)
+	require.NotNil(t, updatedDate)
 
-	if updatedDate.Date != "20280426" {
-		t.Fatalf("got date %q, want %q", updatedDate.Date, "20280426")
-	}
+	assert.Equal(t, "20280426", updatedDate.Date)
 
-	if err := DeleteTask(got.ID); err != nil {
-		t.Fatalf("DeleteTask returned error: %v", err)
-	}
+	err = store.DeleteTask(got.ID)
+	require.NoError(t, err)
 
-	_, err = GetTask(got.ID)
-	if err == nil {
-		t.Fatal("expected error after delete, got nil")
-	}
+	_, err = store.GetTask(got.ID)
+	require.Error(t, err)
 }
 
 func TestGetTasks(t *testing.T) {
-	setupTestDB(t)
+	store := setupTestDB(t)
 
-	_, _ = AddTask(&Task{
+	_, err := store.AddTask(&Task{
 		Date:    "20260428",
 		Title:   "Task 3",
 		Comment: "",
 		Repeat:  "",
 	})
-	_, _ = AddTask(&Task{
+	require.NoError(t, err)
+
+	_, err = store.AddTask(&Task{
 		Date:    "20260426",
 		Title:   "Task 1",
 		Comment: "alpha",
 		Repeat:  "",
 	})
-	_, _ = AddTask(&Task{
+	require.NoError(t, err)
+
+	_, err = store.AddTask(&Task{
 		Date:    "20260427",
 		Title:   "Task 2",
 		Comment: "beta",
 		Repeat:  "",
 	})
+	require.NoError(t, err)
 
-	tasks, err := GetTasks(10, "")
-	if err != nil {
-		t.Fatalf("GetTasks returned error: %v", err)
-	}
+	tasks, err := store.GetTasks(10, "")
+	require.NoError(t, err)
+	require.Len(t, tasks, 3)
 
-	if len(tasks) != 3 {
-		t.Fatalf("got %d tasks, want 3", len(tasks))
-	}
-
-	if tasks[0].Title != "Task 1" {
-		t.Fatalf("tasks are not sorted by date")
-	}
-	if tasks[1].Title != "Task 2" {
-		t.Fatalf("tasks are not sorted by date")
-	}
-	if tasks[2].Title != "Task 3" {
-		t.Fatalf("tasks are not sorted by date")
-	}
+	assert.Equal(t, "Task 1", tasks[0].Title)
+	assert.Equal(t, "Task 2", tasks[1].Title)
+	assert.Equal(t, "Task 3", tasks[2].Title)
 }
 
 func TestGetTasks_SearchByText(t *testing.T) {
-	setupTestDB(t)
+	store := setupTestDB(t)
 
-	_, _ = AddTask(&Task{
+	_, err := store.AddTask(&Task{
 		Date:    "20260426",
 		Title:   "Бассейн",
 		Comment: "пойти вечером",
 		Repeat:  "",
 	})
-	_, _ = AddTask(&Task{
+	require.NoError(t, err)
+
+	_, err = store.AddTask(&Task{
 		Date:    "20260427",
 		Title:   "Магазин",
 		Comment: "купить воду",
 		Repeat:  "",
 	})
+	require.NoError(t, err)
 
-	tasks, err := GetTasks(10, "Бассейн")
-	if err != nil {
-		t.Fatalf("GetTasks returned error: %v", err)
-	}
+	tasks, err := store.GetTasks(10, "Бассейн")
+	require.NoError(t, err)
+	require.Len(t, tasks, 1)
 
-	if len(tasks) != 1 {
-		t.Fatalf("got %d tasks, want 1", len(tasks))
-	}
-
-	if tasks[0].Title != "Бассейн" {
-		t.Fatalf("unexpected task title %q", tasks[0].Title)
-	}
+	assert.Equal(t, "Бассейн", tasks[0].Title)
 }
 
 func TestGetTasks_SearchByDate(t *testing.T) {
-	setupTestDB(t)
+	store := setupTestDB(t)
 
-	_, _ = AddTask(&Task{
+	_, err := store.AddTask(&Task{
 		Date:    "20260426",
 		Title:   "Task A",
 		Comment: "",
 		Repeat:  "",
 	})
-	_, _ = AddTask(&Task{
+	require.NoError(t, err)
+
+	_, err = store.AddTask(&Task{
 		Date:    "20260427",
 		Title:   "Task B",
 		Comment: "",
 		Repeat:  "",
 	})
+	require.NoError(t, err)
 
-	tasks, err := GetTasks(10, "26.04.2026")
-	if err != nil {
-		t.Fatalf("GetTasks returned error: %v", err)
-	}
+	tasks, err := store.GetTasks(10, "26.04.2026")
+	require.NoError(t, err)
+	require.Len(t, tasks, 1)
 
-	if len(tasks) != 1 {
-		t.Fatalf("got %d tasks, want 1", len(tasks))
-	}
-
-	if tasks[0].Title != "Task A" {
-		t.Fatalf("unexpected task title %q", tasks[0].Title)
-	}
+	assert.Equal(t, "Task A", tasks[0].Title)
 }
 
-func setupTestDB(t *testing.T) {
+func setupTestDB(t *testing.T) *Store {
 	t.Helper()
 
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
 
-	oldDB := DB
-
 	t.Setenv(envDBFile, dbPath)
 
-	database, err := InitDB()
-	if err != nil {
-		t.Fatalf("InitDB returned error: %v", err)
-	}
+	store, err := InitDB()
+	require.NoError(t, err)
 
 	t.Cleanup(func() {
-		_ = database.Close()
-		DB = oldDB
+		_ = store.Close()
 	})
+
+	return store
 }
 
 func int64ToString(v int64) string {

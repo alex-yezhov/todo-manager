@@ -16,22 +16,22 @@ type tasksResponse struct {
 	Tasks []*db.Task `json:"tasks"`
 }
 
-func taskHandler(w http.ResponseWriter, r *http.Request) {
+func (a *App) taskHandler(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodPost:
-		addTaskHandler(w, r)
+		a.addTaskHandler(w, r)
 	case http.MethodGet:
-		getTaskHandler(w, r)
+		a.getTaskHandler(w, r)
 	case http.MethodPut:
-		updateTaskHandler(w, r)
+		a.updateTaskHandler(w, r)
 	case http.MethodDelete:
-		deleteTaskHandler(w, r)
+		a.deleteTaskHandler(w, r)
 	default:
 		w.WriteHeader(http.StatusMethodNotAllowed)
 	}
 }
 
-func tasksHandler(w http.ResponseWriter, r *http.Request) {
+func (a *App) tasksHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
@@ -39,7 +39,7 @@ func tasksHandler(w http.ResponseWriter, r *http.Request) {
 
 	search := strings.TrimSpace(r.FormValue("search"))
 
-	tasks, err := db.GetTasks(tasksLimit, search)
+	tasks, err := a.store.GetTasks(tasksLimit, search)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
@@ -50,7 +50,7 @@ func tasksHandler(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func addTaskHandler(w http.ResponseWriter, r *http.Request) {
+func (a *App) addTaskHandler(w http.ResponseWriter, r *http.Request) {
 	task, err := readTaskFromBody(r)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
@@ -62,7 +62,7 @@ func addTaskHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	id, err := db.AddTask(task)
+	id, err := a.store.AddTask(task)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
@@ -73,14 +73,14 @@ func addTaskHandler(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func getTaskHandler(w http.ResponseWriter, r *http.Request) {
+func (a *App) getTaskHandler(w http.ResponseWriter, r *http.Request) {
 	id := strings.TrimSpace(r.FormValue("id"))
 	if id == "" {
 		writeError(w, http.StatusBadRequest, "не указан идентификатор")
 		return
 	}
 
-	task, err := db.GetTask(id)
+	task, err := a.store.GetTask(id)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
@@ -89,7 +89,7 @@ func getTaskHandler(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, task)
 }
 
-func updateTaskHandler(w http.ResponseWriter, r *http.Request) {
+func (a *App) updateTaskHandler(w http.ResponseWriter, r *http.Request) {
 	task, err := readTaskFromBody(r)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
@@ -101,7 +101,7 @@ func updateTaskHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := db.UpdateTask(task); err != nil {
+	if err := a.store.UpdateTask(task); err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -109,14 +109,14 @@ func updateTaskHandler(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{})
 }
 
-func deleteTaskHandler(w http.ResponseWriter, r *http.Request) {
+func (a *App) deleteTaskHandler(w http.ResponseWriter, r *http.Request) {
 	id := strings.TrimSpace(r.FormValue("id"))
 	if id == "" {
 		writeError(w, http.StatusBadRequest, "не указан идентификатор")
 		return
 	}
 
-	if err := db.DeleteTask(id); err != nil {
+	if err := a.store.DeleteTask(id); err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -124,7 +124,7 @@ func deleteTaskHandler(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{})
 }
 
-func doneTaskHandler(w http.ResponseWriter, r *http.Request) {
+func (a *App) doneTaskHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
@@ -136,14 +136,14 @@ func doneTaskHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	task, err := db.GetTask(id)
+	task, err := a.store.GetTask(id)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	if strings.TrimSpace(task.Repeat) == "" {
-		if err := db.DeleteTask(id); err != nil {
+		if err := a.store.DeleteTask(id); err != nil {
 			writeError(w, http.StatusBadRequest, err.Error())
 			return
 		}
@@ -158,7 +158,7 @@ func doneTaskHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := db.UpdateDate(id, next); err != nil {
+	if err := a.store.UpdateDate(id, next); err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -167,11 +167,8 @@ func doneTaskHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func readTaskFromBody(r *http.Request) (*db.Task, error) {
-	defer func() {
-		_ = r.Body.Close()
-	}()
-
 	var task db.Task
+
 	if err := json.NewDecoder(r.Body).Decode(&task); err != nil {
 		return nil, err
 	}
@@ -187,7 +184,7 @@ func readTaskFromBody(r *http.Request) (*db.Task, error) {
 
 func validateTask(task *db.Task, needID bool) error {
 	if needID && task.ID == "" {
-		return strconv.ErrSyntax
+		return simpleError("не указан идентификатор")
 	}
 
 	if task.Title == "" {

@@ -8,7 +8,12 @@ import (
 	"time"
 )
 
-func nextDateHandler(w http.ResponseWriter, r *http.Request) {
+func (a *App) nextDateHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+
 	nowStr := strings.TrimSpace(r.FormValue("now"))
 	dateStr := strings.TrimSpace(r.FormValue("date"))
 	repeat := strings.TrimSpace(r.FormValue("repeat"))

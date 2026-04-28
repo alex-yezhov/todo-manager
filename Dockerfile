@@ -1,4 +1,4 @@
-FROM golang:1.26 AS builder
+FROM golang:1.25 AS builder
 
 WORKDIR /app
 
@@ -12,8 +12,6 @@ WORKDIR /app
 
 COPY --from=builder /app/scheduler /app/scheduler
 COPY --from=builder /app/web /app/web
-
-EXPOSE 7540
 
 ENV TODO_PORT=7540
 ENV TODO_DBFILE=/data/scheduler.db

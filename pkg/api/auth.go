@@ -7,7 +7,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"net/http"
-	"os"
 	"strings"
 	"time"
 )
@@ -23,17 +22,13 @@ type tokenPayload struct {
 	Exp  int64  `json:"exp"`
 }
 
-func signinHandler(w http.ResponseWriter, r *http.Request) {
+func (a *App) signinHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
-	defer func() {
-		_ = r.Body.Close()
-	}()
 
-	password := currentPassword()
-	if password == "" {
+	if a.password == "" {
 		writeError(w, http.StatusBadRequest, "пароль не задан")
 		return
 	}
@@ -44,12 +39,12 @@ func signinHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.Password != password {
+	if req.Password != a.password {
 		writeError(w, http.StatusUnauthorized, "неверный пароль")
 		return
 	}
 
-	token, err := makeToken(password)
+	token, err := makeToken(a.password)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -60,26 +55,21 @@ func signinHandler(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func auth(next http.HandlerFunc) http.HandlerFunc {
+func (a *App) auth(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		password := currentPassword()
-		if password == "" {
+		if a.password == "" {
 			next(w, r)
 			return
 		}
 
 		cookie, err := r.Cookie("token")
-		if err != nil || !validateToken(cookie.Value, password) {
+		if err != nil || !validateToken(cookie.Value, a.password) {
 			http.Error(w, "authentication required", http.StatusUnauthorized)
 			return
 		}
 
 		next(w, r)
 	}
-}
-
-func currentPassword() string {
-	return strings.TrimSpace(os.Getenv("TODO_PASSWORD"))
 }
 
 func makeToken(password string) (string, error) {
